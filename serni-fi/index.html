@@ -40,83 +40,93 @@
   <button id="stopBtn" disabled>Stop & Claim</button>
   <div id="toast" class="toast"></div>
 
-  <script type="module">
-    import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-    import { createConfig, connect, switchChain, writeContract, getAccount, http } from 'https://esm.sh/@wagmi/core';
-    import { base } from 'https://esm.sh/@wagmi/core/chains';
-    import { farcasterMiniApp } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector';
+ <script type="module">
+import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
+import { createConfig, connect, switchChain, writeContract, getAccount, http } from 'https://esm.sh/@wagmi/core';
+import { base } from 'https://esm.sh/@wagmi/core/chains';
+import { farcasterMiniApp } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector';
 
-    sdk.actions.ready({ disableNativeGestures: true });
+sdk.actions.ready({ disableNativeGestures: true });
 
-    const timerEl = document.getElementById('timer');
-    const tokensEl = document.getElementById('tokens');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const toastEl = document.getElementById('toast');
+const timerEl = document.getElementById('timer');
+const tokensEl = document.getElementById('tokens');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const toastEl = document.getElementById('toast');
 
-    function showToast(html, ms=3500){
-      toastEl.innerHTML=html;
-      toastEl.classList.add('show');
-      setTimeout(()=>toastEl.classList.remove('show'), ms);
+function showToast(html, ms=3500){
+  toastEl.innerHTML = html;
+  toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'), ms);
+}
+
+async function loadJson(path){ const r=await fetch(path); return r.json(); }
+const { address: CONTRACT_ADDR, abi: CONTRACT_ABI } = await loadJson('/baseClaim.json');
+
+const config = createConfig({
+  chains: [base],
+  transports: { [base.id]: http() }
+});
+
+let userAddress;
+
+// Proper Farcaster connection with prompt
+async function connectUser() {
+  try {
+    // this triggers the Farcaster Mini App connection prompt
+    await connect(config, { connector: farcasterMiniApp() });
+    userAddress = getAccount(config)?.address;
+    if(userAddress){
+      showToast(`✅ Connected: ${userAddress}`);
+      startBtn.disabled = false;
+    } else {
+      showToast('⚠️ Failed to get account.');
     }
+  } catch(e) {
+    console.error(e);
+    showToast('❌ Connection failed.');
+  }
+}
 
-    async function loadJson(path){ const r=await fetch(path); return r.json(); }
-    const { address: CONTRACT_ADDR, abi: CONTRACT_ABI } = await loadJson('/baseClaim.json');
+// call it immediately so the prompt shows when the miniapp opens
+connectUser();
 
-    // wagmi config
-    const config = createConfig({
-      chains:[base],
-      transports:{ [base.id]: http() }
+let seconds = 0, timer = null;
+
+startBtn.onclick = () => {
+  if(!userAddress){ showToast('⚠️ Connect your account first.'); return; }
+  seconds = 0;
+  timerEl.textContent = `0s`;
+  tokensEl.textContent = `Tokens: 0`;
+  startBtn.disabled = true; 
+  stopBtn.disabled = false;
+
+  timer = setInterval(()=>{
+    seconds++;
+    timerEl.textContent = `${seconds}s`;
+    tokensEl.textContent = `Tokens: ${seconds}`;
+  },1000);
+};
+
+stopBtn.onclick = async () => {
+  clearInterval(timer);
+  startBtn.disabled = false; 
+  stopBtn.disabled = true;
+  try {
+    await switchChain(config, { chainId: base.id });
+    const txHash = await writeContract(config, {
+      address: CONTRACT_ADDR,
+      abi: CONTRACT_ABI,
+      functionName: 'claimReward',
+      args: [BigInt(seconds)]
     });
+    showToast(`🎉 Claimed ${seconds} tokens! <a target="_blank" href="https://basescan.org/tx/${txHash}">view</a>`, 5000);
+  } catch(e){
+    console.error(e);
+    showToast('❌ Claim failed.');
+  }
+};
+</script>
 
-    // Connect account before enabling Start button
-    let userAddress;
-    try {
-      await connect(config, { connector: farcasterMiniApp() });
-      userAddress = getAccount(config)?.address;
-      if(userAddress){
-        showToast(`✅ Connected: ${userAddress}`);
-        startBtn.disabled = false;
-      } else {
-        showToast('⚠️ Failed to get account.');
-      }
-    } catch(e){
-      showToast('❌ Connection failed.');
-    }
-
-    // meditation timer
-    let seconds = 0, timer = null;
-    startBtn.onclick = () => {
-      if(!userAddress){ showToast('⚠️ Connect your account first.'); return; }
-      seconds=0;
-      timerEl.textContent=`0s`;
-      tokensEl.textContent=`Tokens: 0`;
-      startBtn.disabled=true; stopBtn.disabled=false;
-
-      timer = setInterval(()=>{
-        seconds++;
-        timerEl.textContent = `${seconds}s`;
-        tokensEl.textContent = `Tokens: ${seconds}`;
-      },1000);
-    };
-
-    stopBtn.onclick = async () => {
-      clearInterval(timer);
-      startBtn.disabled=false; stopBtn.disabled=true;
-      try {
-        await switchChain(config, { chainId: base.id });
-        const txHash = await writeContract(config,{
-          address: CONTRACT_ADDR,
-          abi: CONTRACT_ABI,
-          functionName: 'claimReward',
-          args: [BigInt(seconds)]
-        });
-        showToast(`🎉 Claimed ${seconds} tokens! <a target="_blank" href="https://basescan.org/tx/${txHash}">view</a>`,5000);
-      } catch(e){
-        console.error(e);
-        showToast('❌ Claim failed.');
-      }
-    };
-  </script>
 </body>
 </html>
