@@ -134,6 +134,12 @@
 
       startBtn.onclick = () => {
         clearInterval(timer); // Stop any previous timer
+        
+        // Play the music here
+        if (isSoundEnabled) {
+          successSound.play();
+        }
+
         seconds = 0;
         timerEl.textContent = `0s`;
         tokensEl.textContent = `Tokens: 0`;
@@ -151,9 +157,9 @@
         startBtn.disabled = false;
         stopBtn.disabled = true;
 
-        if (isSoundEnabled) {
-          successSound.play();
-        }
+        // Stop the music when the stop button is clicked
+        successSound.pause();
+        successSound.currentTime = 0;
 
         try {
           // Connect wallet & switch to Base chain
