@@ -48,15 +48,27 @@
       }
       .toast.show { display:block; animation:fadeIn .25s ease; }
       @keyframes fadeIn { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
+      .sound-toggle-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: white;
+      }
     </style>
 </head>
 <body>
+    <button id="soundToggleBtn" class="sound-toggle-btn">🔊</button>
     <h1>🧘 Meditate to Earn</h1>
     <div id="timer">0s</div>
     <div id="tokens">Tokens: 0</div>
     <button id="startBtn">Start Meditation</button>
     <button id="stopBtn" disabled>Stop & Claim</button>
     <div id="toast" class="toast"></div>
+    <audio id="successSound" src="song.mp3" preload="auto"></audio>
 
     <script type="module">
       import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
@@ -75,6 +87,10 @@
       const startBtn = document.getElementById('startBtn');
       const stopBtn = document.getElementById('stopBtn');
       const toastEl = document.getElementById('toast');
+      const successSound = document.getElementById('successSound');
+      const soundToggleBtn = document.getElementById('soundToggleBtn');
+
+      let isSoundEnabled = true;
 
       function showToast(html, ms=3500){
         toastEl.innerHTML=html;
@@ -108,6 +124,14 @@
       // Meditation timer logic
       let seconds = 0, timer = null;
 
+      soundToggleBtn.onclick = () => {
+        isSoundEnabled = !isSoundEnabled;
+        soundToggleBtn.textContent = isSoundEnabled ? '🔊' : '🔇';
+        if (!isSoundEnabled) {
+          successSound.pause();
+        }
+      };
+
       startBtn.onclick = () => {
         clearInterval(timer); // Stop any previous timer
         seconds = 0;
@@ -126,6 +150,10 @@
         clearInterval(timer);
         startBtn.disabled = false;
         stopBtn.disabled = true;
+
+        if (isSoundEnabled) {
+          successSound.play();
+        }
 
         try {
           // Connect wallet & switch to Base chain
