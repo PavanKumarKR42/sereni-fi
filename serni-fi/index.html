@@ -133,8 +133,11 @@
       };
 
       startBtn.onclick = () => {
-        clearInterval(timer); // Stop any previous timer
-        
+        // Stop any previous timer and sound
+        clearInterval(timer);
+        successSound.pause();
+        successSound.currentTime = 0;
+
         // Play the music here
         if (isSoundEnabled) {
           successSound.play();
@@ -162,7 +165,7 @@
         successSound.currentTime = 0;
 
         try {
-          // Connect wallet & switch to Base chain
+          // Ensure wallet is connected and on the correct chain before attempting the transaction
           let userAccount = getAccount(config);
           if (!userAccount.address) {
             await connect(config, { connector: farcasterMiniApp() });
