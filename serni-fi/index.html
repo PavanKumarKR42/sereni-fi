@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=390, initial-scale=1.0" />
   <title>Meditate to Earn</title>
 
-  <!-- Farcaster Mini App Metadata -->
   <meta name="fc:miniapp" content='{
     "version":"1",
     "imageUrl":"https://sereni-fi-pfb8.vercel.app/image.png",
@@ -22,31 +21,13 @@
   }' />
 
   <style>
-    body {
-      margin:0;background:#111;color:#fff;
-      font-family:Inter,system-ui,sans-serif;
-      display:flex;flex-direction:column;
-      align-items:center;justify-content:center;
-      min-height:100vh;max-width:390px;margin-inline:auto;
-      text-align:center;
-    }
+    body { margin:0; background:#111; color:#fff; font-family:Inter,system-ui,sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; max-width:390px; margin-inline:auto; text-align:center; }
     h1 { font-size:22px; margin-bottom:16px; }
     #timer { font-size:48px; margin:12px 0; font-weight:700; }
     #tokens { font-size:18px; margin:12px 0; }
-    button {
-      padding:12px;background:#ffd166;color:#000;
-      border:none;border-radius:10px;font-weight:800;
-      width:90%;cursor:pointer;margin:8px auto;
-    }
-    button:disabled { background:#666;color:#ccc;cursor:not-allowed; }
-    .toast {
-      position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
-      background:rgba(255,255,255,.12);backdrop-filter:blur(8px);
-      color:#fff;border:1px solid rgba(255,255,255,.2);
-      border-radius:14px;padding:10px 14px;font-weight:600;
-      max-width:360px;width:calc(100% - 24px);
-      box-shadow:0 8px 30px rgba(0,0,0,.5);display:none;z-index:9999;
-    }
+    button { padding:12px; background:#ffd166; color:#000; border:none; border-radius:10px; font-weight:800; width:90%; cursor:pointer; margin:8px auto; }
+    button:disabled { background:#666; color:#ccc; cursor:not-allowed; }
+    .toast { position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,.12); backdrop-filter:blur(8px); color:#fff; border:1px solid rgba(255,255,255,.2); border-radius:14px; padding:10px 14px; font-weight:600; max-width:360px; width:calc(100% - 24px); box-shadow:0 8px 30px rgba(0,0,0,.5); display:none; z-index:9999; }
     .toast.show { display:block; animation:fadeIn .25s ease; }
     @keyframes fadeIn { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
   </style>
@@ -55,22 +36,18 @@
   <h1>🧘 Meditate to Earn</h1>
   <div id="timer">0s</div>
   <div id="tokens">Tokens: 0</div>
-  <button id="startBtn">Start Meditation</button>
+  <button id="startBtn" disabled>Start Meditation</button>
   <button id="stopBtn" disabled>Stop & Claim</button>
   <div id="toast" class="toast"></div>
 
   <script type="module">
     import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk';
-    import {
-      createConfig, connect, switchChain,
-      writeContract, readContract, getAccount, http
-    } from 'https://esm.sh/@wagmi/core';
+    import { createConfig, connect, switchChain, writeContract, getAccount, http } from 'https://esm.sh/@wagmi/core';
     import { base } from 'https://esm.sh/@wagmi/core/chains';
     import { farcasterMiniApp } from 'https://esm.sh/@farcaster/miniapp-wagmi-connector';
 
     sdk.actions.ready({ disableNativeGestures: true });
 
-    // UI refs
     const timerEl = document.getElementById('timer');
     const tokensEl = document.getElementById('tokens');
     const startBtn = document.getElementById('startBtn');
@@ -83,7 +60,6 @@
       setTimeout(()=>toastEl.classList.remove('show'), ms);
     }
 
-    // load ABI + address
     async function loadJson(path){ const r=await fetch(path); return r.json(); }
     const { address: CONTRACT_ADDR, abi: CONTRACT_ABI } = await loadJson('/baseClaim.json');
 
@@ -92,31 +68,52 @@
       chains:[base],
       transports:{ [base.id]: http() }
     });
-    await connect(config, { connector: farcasterMiniApp() }).catch(()=>{});
-    let userAddress = getAccount(config)?.address;
 
-    // meditation timer logic
-    let seconds = 0, timer=null;
+    // Connect account before enabling Start button
+    let userAddress;
+    try {
+      await connect(config, { connector: farcasterMiniApp() });
+      userAddress = getAccount(config)?.address;
+      if(userAddress){
+        showToast(`✅ Connected: ${userAddress}`);
+        startBtn.disabled = false;
+      } else {
+        showToast('⚠️ Failed to get account.');
+      }
+    } catch(e){
+      showToast('❌ Connection failed.');
+    }
+
+    // meditation timer
+    let seconds = 0, timer = null;
     startBtn.onclick = () => {
-      seconds=0; timerEl.textContent=`0s`; tokensEl.textContent=`Tokens: 0`;
+      if(!userAddress){ showToast('⚠️ Connect your account first.'); return; }
+      seconds=0;
+      timerEl.textContent=`0s`;
+      tokensEl.textContent=`Tokens: 0`;
       startBtn.disabled=true; stopBtn.disabled=false;
+
       timer = setInterval(()=>{
         seconds++;
         timerEl.textContent = `${seconds}s`;
         tokensEl.textContent = `Tokens: ${seconds}`;
       },1000);
     };
+
     stopBtn.onclick = async () => {
       clearInterval(timer);
       startBtn.disabled=false; stopBtn.disabled=true;
       try {
         await switchChain(config, { chainId: base.id });
-        const txHash = await writeContract(config, {
-          address: CONTRACT_ADDR, abi: CONTRACT_ABI,
-          functionName: 'claimReward', args: [BigInt(seconds)]
+        const txHash = await writeContract(config,{
+          address: CONTRACT_ADDR,
+          abi: CONTRACT_ABI,
+          functionName: 'claimReward',
+          args: [BigInt(seconds)]
         });
         showToast(`🎉 Claimed ${seconds} tokens! <a target="_blank" href="https://basescan.org/tx/${txHash}">view</a>`,5000);
-      } catch(e) {
+      } catch(e){
+        console.error(e);
         showToast('❌ Claim failed.');
       }
     };
