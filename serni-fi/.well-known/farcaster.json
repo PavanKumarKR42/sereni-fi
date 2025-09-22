@@ -9,8 +9,6 @@
     "splashImageUrl": "https://sereni-fi-pfb8.vercel.app/splash.png",
     "splashBackgroundColor": "#111111",
     "webhookUrl": "https://sereni-fi-pfb8.vercel.app/api/webhook",
-    "subtitle": "https://sereni-fi-pfb8.vercel.app/image.png",
-    "description": "\"Serni-fi: Meditate to Earn\"  Unlock tranquility and rewards with Serni-fi! Our innovative Farcaster mini-app seamlessly blends mindfulness meditation with crypto earning. Cultivate inner peace, enhance well-being, and passively grow your digital assets. Join the future of mindful finance today!",
     "primaryCategory": "health-fitness"
   },
   "accountAssociation": {
