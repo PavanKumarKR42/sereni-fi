@@ -6,19 +6,19 @@
     <title>Meditate to Earn</title>
 
     <meta name="fc:miniapp" content='{
-    "version":"1",
-    "imageUrl":"https://sereni-fi-pfb8.vercel.app/image.png",
-    "button":{
-      "title":"Serni-fi",
-      "action":{
-        "type":"launch_frame",
-        "name":"Meditate to Earn",
-        "url":"https://sereni-fi-pfb8.vercel.app/",
-        "splashImageUrl":"https://sereni-fi-pfb8.vercel.app/splash.png",
-        "splashBackgroundColor":"#111111"
+      "version":"1",
+      "imageUrl":"https://sereni-fi-pfb8.vercel.app/image.png",
+      "button":{
+        "title":"Serni-fi",
+        "action":{
+          "type":"launch_frame",
+          "name":"Meditate to Earn",
+          "url":"https://sereni-fi-pfb8.vercel.app/",
+          "splashImageUrl":"https://sereni-fi-pfb8.vercel.app/splash.png",
+          "splashBackgroundColor":"#111111"
+        }
       }
-    }
-  }' />
+    }' />
 
     <style>
       body {
@@ -82,22 +82,20 @@
         setTimeout(()=>toastEl.classList.remove('show'), ms);
       }
 
-      // Hardcoded ABI and Address based on the provided contract
+      // Hardcoded ABI and Address from your baseClaim.json
       const CONTRACT_ADDR = "0x134B36982726FA535C43d464e72E9fb239a58e9d";
       const CONTRACT_ABI = [
         {"inputs":[{"internalType":"address","name":"_token","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},
         {"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"ContractFunded","type":"event"},
         {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"RewardClaimed","type":"event"},
-        {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"}],"name":"MeditationStarted","type":"event"},
+        {"stateMutability":"payable","type":"fallback"},
+        {"inputs":[{"internalType":"uint256","name":"secondsMeditated","type":"uint256"}],"name":"claimReward","outputs":[],"stateMutability":"nonpayable","type":"function"},
         {"inputs":[{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"fundContract","outputs":[],"stateMutability":"nonpayable","type":"function"},
-        {"inputs":[],"name":"lastClaimTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+        {"inputs":[],"name":"lastFundTime","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
         {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
         {"inputs":[],"name":"rewardPerSecond","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
         {"inputs":[{"internalType":"uint256","name":"_rewardPerSecond","type":"uint256"}],"name":"setRewardPerSecond","outputs":[],"stateMutability":"nonpayable","type":"function"},
         {"inputs":[],"name":"token","outputs":[{"internalType":"contract IERC20","name":"","type":"address"}],"stateMutability":"view","type":"function"},
-        {"inputs":[],"name":"claimReward","outputs":[],"stateMutability":"nonpayable","type":"function"},
-        {"inputs":[],"name":"startMeditation","outputs":[],"stateMutability":"nonpayable","type":"function"},
-        {"stateMutability":"payable","type":"fallback"},
         {"stateMutability":"payable","type":"receive"}
       ];
 
@@ -110,53 +108,25 @@
       // Meditation timer logic
       let seconds = 0, timer = null;
 
-      startBtn.onclick = async () => {
-        // Stop any existing timer
-        clearInterval(timer);
+      startBtn.onclick = () => {
+        clearInterval(timer); // Stop any previous timer
         seconds = 0;
-        
-        try {
-          // Connect wallet & switch to Base chain
-          let userAccount = getAccount(config);
-          if (!userAccount.address) {
-            await connect(config, { connector: farcasterMiniApp() });
-            userAccount = getAccount(config);
-            if (!userAccount.address) {
-              throw new Error('User rejected wallet connection.');
-            }
-          }
-          await switchChain(config, { chainId: base.id });
-          
-          // Call the smart contract to start the meditation session
-          await writeContract(config, {
-            address: CONTRACT_ADDR,
-            abi: CONTRACT_ABI,
-            functionName: 'startMeditation',
-          });
-          
-          // Start the UI timer
-          startBtn.disabled = true;
-          stopBtn.disabled = false;
-          showToast("✅ Meditation timer started on-chain!", 3000);
-          timer = setInterval(()=>{
-            seconds++;
-            timerEl.textContent = `${seconds}s`;
-            tokensEl.textContent = `Tokens: ${seconds}`;
-          }, 1000);
-          
-        } catch(e) {
-          console.error("Start meditation failed:", e);
-          showToast('❌ Failed to start meditation.');
-          startBtn.disabled = false;
-          stopBtn.disabled = true;
-        }
+        timerEl.textContent = `0s`;
+        tokensEl.textContent = `Tokens: 0`;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        timer = setInterval(() => {
+          seconds++;
+          timerEl.textContent = `${seconds}s`;
+          tokensEl.textContent = `Tokens: ${seconds}`;
+        }, 1000);
       };
 
       stopBtn.onclick = async () => {
         clearInterval(timer);
         startBtn.disabled = false;
         stopBtn.disabled = true;
-        
+
         try {
           // Connect wallet & switch to Base chain
           let userAccount = getAccount(config);
@@ -169,18 +139,18 @@
           }
           await switchChain(config, { chainId: base.id });
           
-          // Call the smart contract to claim rewards
-          // No arguments are needed as the contract calculates time on its own
+          // Call the claimReward function with the correct argument
           const txHash = await writeContract(config, {
             address: CONTRACT_ADDR,
             abi: CONTRACT_ABI,
             functionName: 'claimReward',
+            args: [BigInt(seconds)]
           });
 
-          showToast(`🎉 Claim transaction sent! <a target="_blank" href="https://basescan.org/tx/${txHash}">view</a>`, 5000);
+          showToast(`🎉 Claimed ${seconds} tokens! <a target="_blank" href="https://basescan.org/tx/${txHash}">view</a>`, 5000);
         } catch(e) {
           console.error("Claim failed:", e);
-          showToast('❌ Claim failed. Have you started a session?');
+          showToast('❌ Claim failed.');
         }
       };
     </script>
