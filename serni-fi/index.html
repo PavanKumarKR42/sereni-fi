@@ -85,7 +85,7 @@
 
     // load ABI + address
     async function loadJson(path){ const r=await fetch(path); return r.json(); }
-    const { address: CONTRACT_ADDR, abi: CONTRACT_ABI } = await loadJson('/baseclaim.json');
+    const { address: CONTRACT_ADDR, abi: CONTRACT_ABI } = await loadJson('/baseClaim.json');
 
     // wagmi config
     const config = createConfig({
